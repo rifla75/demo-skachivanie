@@ -1,0 +1,79 @@
+# ============================================================
+# ПОЛНАЯ ЦЕПОЧКА ЗАПУСКА ПРОЕКТА chudo_obuv НА ROSA LINUX
+# ============================================================
+
+# ------------------------------------------------------------
+# ШАГ 1. УСТАНОВКА СИСТЕМНЫХ ПАКЕТОВ
+# ------------------------------------------------------------
+sudo dnf install python3 python3-pip postgresql-server postgresql-contrib
+
+
+# ------------------------------------------------------------
+# ШАГ 2. ЗАПУСК POSTGRESQL
+# (в РОСА нет автостарта, юнит не создаётся — запускаем вручную)
+# ------------------------------------------------------------
+
+# 2.1. Инициализация кластера (только первый раз, если /var/lib/pgsql/data пуста)
+sudo -u postgres /usr/libexec/postgresql18/initdb -D /var/lib/pgsql/data
+
+# 2.2. Запуск сервера
+sudo -u postgres /usr/libexec/postgresql18/pg_ctl -D /var/lib/pgsql/data -l /tmp/pg.log start
+
+# 2.3. Проверка, что сервер слушает порт
+ss -tlnp | grep 5432
+
+
+# ------------------------------------------------------------
+# ШАГ 3. СОЗДАНИЕ БАЗЫ И ПОЛЬЗОВАТЕЛЯ
+# (данные берутся из db/connection.py)
+# ------------------------------------------------------------
+
+sudo -u postgres psql -c "CREATE USER obuv_user WITH PASSWORD 'obuv_pass';"
+sudo -u postgres psql -c "CREATE DATABASE chudo_obuv OWNER obuv_user;"
+
+
+# ------------------------------------------------------------
+# ШАГ 4. ЗАЛИВКА СХЕМЫ И ДАННЫХ
+# ВАЖНО: через "<" (stdin), а не "-f".
+# Иначе "Отказано в доступе" — postgres не читает /home/live/
+# ------------------------------------------------------------
+
+sudo -u postgres psql -d chudo_obuv < ~/schudo_obuv/db/schema.sql
+sudo -u postgres psql -d chudo_obuv < ~/schudo_obuv/db/demo_data.sql
+# (если seed.sql не пустой — залей и его тоже)
+
+
+# ------------------------------------------------------------
+# ШАГ 5. ВЫДАЧА ПРАВ ПОЛЬЗОВАТЕЛЮ obuv_user
+# (иначе InsufficientPrivilege: нет доступа к таблице)
+# ------------------------------------------------------------
+
+sudo -u postgres psql -d chudo_obuv -c "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO obuv_user;"
+sudo -u postgres psql -d chudo_obuv -c "GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO obuv_user;"
+sudo -u postgres psql -d chudo_obuv -c "ALTER SCHEMA public OWNER TO obuv_user;"
+
+
+# ------------------------------------------------------------
+# ШАГ 6. УСТАНОВКА PYTHON-БИБЛИОТЕК
+# --user обязателен, иначе "Отказано в доступе" при записи в /usr
+# ------------------------------------------------------------
+
+pip3 install --user psycopg2-binary
+pip3 install --user PyQt5
+# или всё разом, если есть requirements.txt:
+# pip3 install --user -r ~/schudo_obuv/requirements.txt
+
+
+# ------------------------------------------------------------
+# ШАГ 7. ПРОВЕРКА И ЗАПУСК
+# ------------------------------------------------------------
+
+# 7.1. Проверить, что данные на месте
+sudo -u postgres psql -d chudo_obuv -c "SELECT login FROM users;"
+# должно показать: isivanov, papetrov, asidorova
+
+# 7.2. Запустить приложение
+cd ~/schudo_obuv
+python3 main.py
+
+# Логины для входа: isivanov, papetrov, asidorova

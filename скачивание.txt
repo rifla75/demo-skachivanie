@@ -1,0 +1,25 @@
+rpm -qa | grep postgresql
+sudo systemctl enable --now postgresql
+sudo systemctl status postgresql
+-------------------------------------------
+бд скачивание
+sudo -u postgres /usr/libexec/postgresql18/pg_ctl -D /var/lib/pgsql/data -l /tmp/pg.log start
+
+sudo -u postgres psql -c "CREATE USER obuv_user WITH PASSWORD 'obuv_pass';"
+
+sudo -u postgres psql -c "CREATE DATABASE chudo_obuv OWNER obuv_user;"
+
+sudo -u postgres psql -d chudo_obuv -f ~/schudo_obuv/db/schema.sql
+
+sudo -u postgres psql -d chudo_obuv -f ~/schudo_obuv/db/seed.sql
+--------------------------------------------------
+Шаг 4 (на будущее) — сделай скрипт для быстрого запуска
+nano ~/schudo_obuv/start.sh
+
+#!/bin/bash
+sudo -u postgres /usr/libexec/postgresql18/pg_ctl -D /var/lib/pgsql/data -l /tmp/pg.log start
+cd ~/schudo_obuv
+python3 main.py
+
+
+
